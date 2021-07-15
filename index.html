@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<base target="_blank">
+	<title>Media Recorder</title>
+	<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div>
+    <h1>Media Recorder API</h1>
+    <div>
+      <video id="live" controls="" autoplay="" playsinline=""></video> <video id="playback" controls="" autoplay=""></video><br>
+      <div id="controls">
+        <button id="rec" onclick="onBtnRecordClicked()">Record</button>
+        <button id="pauseRes" onclick="onPauseResumeClicked()" disabled="">Pause</button>
+        <button id="stop" onclick="onBtnStopClicked()" disabled="">Stop</button>
+      </div>
+    </div>
+    <a id="downloadLink" download="mediarecorder.webm" name="mediarecorder.webm" href=""></a>
+    <script src="js/adapter.js"></script>
+    <script src="js/index.js"></script>
+  </div>
+
+</body>
+</html>
