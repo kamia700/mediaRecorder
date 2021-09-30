@@ -60,20 +60,7 @@ a:hover {
   margin-top: 2rem;
   margin-bottom: 0.5rem; }
 
-a.downloadLink {
-  display: block;
-  margin: 0 0 1em 0;
-  min-height: 1.2em;
-  margin-top: 30px; }
-
-video {
-  background: #222;
-  margin: 10px auto;
-  width: 320px;
-  height: 240px; }
-
 button {
-  font-size: 1rem;
   -webkit-box-flex: 1;
       -ms-flex-positive: 1;
           flex-grow: 1;
@@ -95,7 +82,8 @@ button {
       -ms-flex-align: center;
           align-items: center;
   color: #ffffff;
-  font-weight: bold; }
+  font-weight: bold;
+  font-size: 1rem; }
 
 button:hover, button:focus {
   outline: none;
@@ -112,6 +100,18 @@ button:disabled {
 
 button:first-child {
   margin-left: 0; }
+
+a.downloadLink {
+  display: block;
+  margin: 0 0 1em 0;
+  min-height: 1.2em;
+  margin-top: 30px; }
+
+video {
+  background: #222;
+  margin: 10px auto;
+  width: 320px;
+  height: 240px; }
 
 .video .video__screen {
   display: -webkit-box;

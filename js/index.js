@@ -398,13 +398,13 @@
 })();
 
 
-let param = true;
+let par = true;
 
 let videoBlock = document.querySelector('.video');
 let audioBlock = document.querySelector('.audio');
 
 window.addEventListener('load', () => {
-  if (param) {
+  if (par) {
     audioBlock.style.display = 'block';
     audioRecorder.audioRecorder();
   } else {
