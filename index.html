@@ -4,24 +4,45 @@
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<base target="_blank">
-	<title>Media Recorder</title>
+	<title>Video & Audio Recorder</title>
 	<link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.10.0/css/all.css" integrity="sha384-AYmEC3Yw5cVb3ZcuHtOA93w35dYTsvhLPVnYs9eStHfGJvOvKxVfELGroGkvsg+p" crossorigin="anonymous">
+
 </head>
 <body>
   <div>
-    <h1>Media Recorder API</h1>
-    <div>
-      <video id="live" controls="" autoplay="" playsinline=""></video> <video id="playback" controls="" autoplay=""></video><br>
-      <div id="controls">
-        <button id="rec" onclick="onBtnRecordClicked()">Record</button>
-        <button id="pauseRes" onclick="onPauseResumeClicked()" disabled="">Pause</button>
-        <button id="stop" onclick="onBtnStopClicked()" disabled="">Stop</button>
+    <section class="audio wrapper">
+      <header>
+        <h1>Audio Recorder</h1>
+      </header>
+      <div class="audio__block main-controls">
+        <div id="buttons" class="controls audio__controls">
+          <button id="recordButton" class="recordButton"><i class="fas fa-circle"></i></button>
+          <button id="stopButton" class="stopAudio"><i class="fas fa-stop"></i></button>
+        </div>
+        <canvas class="visualizer" height="60px"></canvas>
       </div>
-    </div>
-    <a id="downloadLink" download="mediarecorder.webm" name="mediarecorder.webm" href=""></a>
-    <script src="js/adapter.js"></script>
+      <div id="recordingsList"></div>
+    </section>
+
+    <section class="video wrapper">
+      <header>
+        <h1>Video Recorder API</h1>
+      </header>
+      <section class="video__block main-controls">
+        <div class="video__screen">
+          <video id="live" controls="" autoplay="" playsinline="" muted="muted"></video>
+          <video id="playback" controls=""></video><br>
+        </div>
+        <div id="controls" class="controls">
+          <button id="rec"><i class="fas fa-circle"></i></button>
+          <button id="stop" disabled=""><i class="fas fa-stop"></i></button>
+        </div>
+        <a id="downloadLink" class="downloadLink" download="mediarecorder.webm" name="mediarecorder.webm" href=""></a>
+      </section>
+    </section>
+
     <script src="js/index.js"></script>
   </div>
-
 </body>
 </html>

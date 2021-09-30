@@ -1,4 +1,12 @@
+* {
+  margin: 0;
+  padding: 0;
+  -webkit-box-sizing: border-box;
+          box-sizing: border-box; }
+
 body {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 1rem;
   line-height: 1.5;
   font-family: sans-serif;
   word-wrap: break-word;
@@ -6,15 +14,11 @@ body {
   color: black;
   margin: 2em; }
 
-h1 {
-  font-size: 220%;
-  font-weight: bold; }
-
-h2 {
-  font-weight: bold;
-  color: #005A9C;
-  font-size: 140%;
-  text-transform: uppercase; }
+h1, h2 {
+  font-size: 2rem;
+  text-align: center;
+  font-weight: normal;
+  padding: 0.5rem 0 0 0; }
 
 p {
   margin: 1em 0; }
@@ -33,33 +37,34 @@ a:hover {
   color: #3d85c6;
   text-decoration: underline; }
 
-a#downloadLink {
+.wrapper {
+  height: 100%;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column; }
+
+.video,
+.audio {
+  display: none; }
+
+.controls {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  min-width: 8rem;
+  max-width: 10rem;
+  margin-top: 2rem;
+  margin-bottom: 0.5rem; }
+
+a.downloadLink {
   display: block;
   margin: 0 0 1em 0;
-  min-height: 1.2em; }
-
-div#container {
-  margin: 0 auto 0 auto;
-  max-width: 720px;
-  padding: 1em 1.5em 1.3em 1.5em; }
-
-h3 {
-  border-top: 1px solid #eee;
-  color: #666;
-  font-size: 0.9em;
-  font-weight: 500;
-  margin: 20px 0 10px 0;
-  padding: 10px 0 0 0;
-  white-space: nowrap; }
-
-p#data {
-  border-top: 1px dotted #666;
-  font-family: Courier New, monospace;
-  line-height: 1.3em;
-  min-height: 6em;
-  max-height: 1000px;
-  overflow-y: auto;
-  padding: 1em 0 0 0; }
+  min-height: 1.2em;
+  margin-top: 30px; }
 
 video {
   background: #222;
@@ -67,22 +72,15 @@ video {
   width: 320px;
   height: 240px; }
 
-#controls {
-  display: -webkit-box;
-  display: -ms-flexbox;
-  display: flex;
-  margin-top: 2rem;
-  max-width: 28em; }
-
 button {
+  font-size: 1rem;
   -webkit-box-flex: 1;
       -ms-flex-positive: 1;
           flex-grow: 1;
   height: 3.5rem;
-  min-width: 2rem;
   border: none;
   border-radius: 0.15rem;
-  background: #005A9C;
+  background: #fe3e09;
   margin-left: 2px;
   -webkit-box-shadow: inset 0 -0.15rem 0 rgba(0, 0, 0, 0.2);
           box-shadow: inset 0 -0.15rem 0 rgba(0, 0, 0, 0.2);
@@ -97,15 +95,11 @@ button {
       -ms-flex-align: center;
           align-items: center;
   color: #ffffff;
-  font-weight: bold;
-  font-size: 1.5rem; }
+  font-weight: bold; }
 
 button:hover, button:focus {
   outline: none;
-  background: #0474c4; }
-
-button::-moz-focus-inner {
-  border: 0; }
+  background: #fe3e09; }
 
 button:active {
   -webkit-box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.2);
@@ -118,3 +112,70 @@ button:disabled {
 
 button:first-child {
   margin-left: 0; }
+
+.video .video__screen {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  width: -webkit-min-content;
+  width: -moz-min-content;
+  width: min-content; }
+
+.video__screen video {
+  margin: 0 20px;
+  margin-left: 0; }
+
+.main-controls {
+  padding: 0.5rem 0; }
+
+.audio__controls {
+  margin-right: 1rem; }
+
+canvas {
+  min-width: 200px;
+  display: block;
+  margin-bottom: 0.5rem;
+  margin-top: 2rem; }
+
+#buttons {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: horizontal;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: row;
+          flex-direction: row;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between; }
+
+#buttons button {
+  font-size: 1rem;
+  padding: 1rem;
+  width: calc(50% - 0.25rem); }
+
+section, article {
+  display: block; }
+
+.audio__block {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: horizontal;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: row;
+          flex-direction: row;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between; }
+
+audio {
+  width: 100%;
+  display: block;
+  margin: 1rem auto 0.5rem; }
+
+@media all and (min-width: 800px) {
+  .wrapper {
+    width: 90%;
+    max-width: 1000px;
+    margin: 0 auto; } }

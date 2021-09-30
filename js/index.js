@@ -1,397 +1,414 @@
 'use strict';
+(function () {
+  let audioRecorder = function() {
+    //webkitURL is deprecated but nevertheless
+    URL = window.URL || window.webkitURL;
 
-/* globals MediaRecorder */
-// Spec is at http://dvcs.w3.org/hg/dap/raw-file/tip/media-stream-capture/RecordingProposal.html
-
-var constraints = {
-  audio:true,
-  video: {
-    width: {
-      min:640,
-      ideal:640,
-      max:640},
-    height: { 
-      min:480,
-      ideal:480,
-      max:480 },
-    framerate:60}};
-
-var recBtn = document.querySelector('button#rec');
-var pauseResBtn = document.querySelector('button#pauseRes');
-var stopBtn = document.querySelector('button#stop');
-
-var liveVideoElement = document.querySelector('#live');
-var playbackVideoElement = document.querySelector('#playback');
-var dataElement = document.querySelector('#data');
-var downloadLink = document.querySelector('a#downloadLink');
-
-liveVideoElement.controls = false;
-playbackVideoElement.controls=false;
-
-var mediaRecorder;
-var chunks = [];
-var count = 0;
-var localStream = null;
-var soundMeter  = null;
-var containerType = "video/webm"; //defaults to webm but we switch to mp4 on Safari 14.0.2+
+    var gumStream; 						//stream from getUserMedia()
+    var recorder; 						//MediaRecorder object
+    var extension;
+    const canvas = document.querySelector('.visualizer');
+    const mainSection = document.querySelector('.main-controls');
 
 
-if (!navigator.mediaDevices.getUserMedia){
-	alert('navigator.mediaDevices.getUserMedia not supported on your browser, use the latest version of Firefox or Chrome');
-} else {
-	if (window.MediaRecorder == undefined) {
-			alert('MediaRecorder not supported on your browser, use the latest version of Firefox or Chrome');
-	} else {
-		navigator.mediaDevices.getUserMedia(constraints)
-			.then(function(stream) {
-				localStream = stream;
-				
-				localStream.getTracks().forEach(function(track) {
-					if(track.kind == "audio"){
-						track.onended = function(event){
-							 log("audio track.onended Audio track.readyState="+track.readyState+", track.muted=" + track.muted);
-						}
-					}
-					if(track.kind == "video"){
-						track.onended = function(event){
-							log("video track.onended Audio track.readyState="+track.readyState+", track.muted=" + track.muted);
-						}
-					}
-				});
-				
-				liveVideoElement.srcObject = localStream;
-				liveVideoElement.play();
-				
-				try {
-					window.AudioContext = window.AudioContext || window.webkitAudioContext;
-					window.audioContext = new AudioContext();
-				  } catch (e) {
-					log('Web Audio API not supported.');
-				  }
+    let audioCtx;
+    const canvasCtx = canvas.getContext("2d");
 
-				  soundMeter = window.soundMeter = new SoundMeter(window.audioContext);
-				  soundMeter.connectToSource(localStream, function(e) {
-					if (e) {
-						log(e);
-						return;
-					}else{
-					   /*setInterval(function() {
-						  log(Math.round(soundMeter.instant.toFixed(2) * 100));
-					  }, 100);*/
-					}
-				  });
-				
-			}).catch(function(err) {
-				/* handle the error */
-				log('navigator.getUserMedia error: '+err);
-			});
-	}
-}
+    var recordButton = document.getElementById("recordButton");
+    var stopButton = document.getElementById("stopButton");
 
-function onBtnRecordClicked (){
-	if (localStream == null) {
-		alert('Could not get local stream from mic/camera');
-	} else {
-		recBtn.disabled = true;
-		pauseResBtn.disabled = false;
-		stopBtn.disabled = false;
+    //add events to those 2 buttons
+    recordButton.addEventListener("click", startRecording);
+    stopButton.addEventListener("click", stopRecording);
 
-		chunks = [];
 
-		/* use the stream */
-		// log('Start recording...');
-		if (typeof MediaRecorder.isTypeSupported == 'function'){
-			/*
-				MediaRecorder.isTypeSupported is a function announced in https://developers.google.com/web/updates/2016/01/mediarecorder and later introduced in the MediaRecorder API spec http://www.w3.org/TR/mediastream-recording/
-			*/
-			if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
-			  var options = {mimeType: 'video/webm;codecs=vp9'};
-			} else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
-			  var options = {mimeType: 'video/webm;codecs=h264'};
-			} else  if (MediaRecorder.isTypeSupported('video/webm')) {
-			  var options = {mimeType: 'video/webm'};
-			} else  if (MediaRecorder.isTypeSupported('video/mp4')) {
-			  // Safari 14.0.2 has an EXPERIMENTAL version of MediaRecorder enabled by default
-			  containerType = "video/mp4";
-			  var options = {mimeType: 'video/mp4'};
-			}
-			log('Using '+ options.mimeType);
-			mediaRecorder = new MediaRecorder(localStream, options);
-		} else {
-			log('isTypeSupported is not supported, using default codecs for browser');
-			mediaRecorder = new MediaRecorder(localStream);
-		}
+    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')){
+      extension="webm";
+    }else{
+      extension="ogg"
+    }
 
-		mediaRecorder.ondataavailable = function(e) {
-			log('mediaRecorder.ondataavailable, e.data.size='+e.data.size);
-			if (e.data && e.data.size > 0) {
-				chunks.push(e.data);
-			}
-		};
+    function startRecording() {
+    var chunks = [];
+    recordingsList.innerHTML = "";
+    var constraints = {audio: true}
 
-		mediaRecorder.onerror = function(e){
-			log('mediaRecorder.onerror: ' + e);
-		};
+    recordButton.disabled = true;
+    stopButton.disabled = false;
 
-		mediaRecorder.onstart = function(){
-			log('mediaRecorder.onstart, mediaRecorder.state = ' + mediaRecorder.state);
-			
-			localStream.getTracks().forEach(function(track) {
+    navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+      gumStream = stream;
+      recorder = new MediaRecorder(stream);
+      visualize(stream);
+
+      recorder.ondataavailable = function(e){
+          chunks.push(e.data);
+          if (recorder.state == 'inactive') {
+            const blob = new Blob(chunks, { type: 'audio/'+extension, bitsPerSecond:128000});
+            createDownloadLink(blob)
+          }
+      };
+
+      recorder.onerror = function(e){
+        console.log(e.error);
+      }
+      recorder.start(1000);
+      }).catch(function(err) {
+        console.log('The following error occured: ' + err);
+    });
+    }
+
+    function stopRecording() {
+      recorder.stop();
+      gumStream.getAudioTracks()[0].stop();
+      stopButton.disabled = true;
+      recordButton.disabled = false;
+    }
+
+    function createDownloadLink(blob) {
+      var url = URL.createObjectURL(blob);
+      var au = document.createElement('audio');
+      au.controls = true;
+      au.src = url;
+      recordingsList.appendChild(au);
+    }
+
+    function visualize(stream) {
+      if(!audioCtx) {
+        audioCtx = new AudioContext();
+      }
+
+      const source = audioCtx.createMediaStreamSource(stream);
+
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      source.connect(analyser);
+
+      draw()
+
+      function draw() {
+        const WIDTH = canvas.width
+        const HEIGHT = canvas.height;
+
+        requestAnimationFrame(draw);
+
+        analyser.getByteTimeDomainData(dataArray);
+
+        canvasCtx.fillStyle = 'rgb(200, 200, 200)';
+        canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
+
+        canvasCtx.lineWidth = 2;
+        canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
+
+        canvasCtx.beginPath();
+
+        let sliceWidth = WIDTH * 1.0 / bufferLength;
+        let x = 0;
+
+
+        for(let i = 0; i < bufferLength; i++) {
+
+          let v = dataArray[i] / 128.0;
+          let y = v * HEIGHT/2;
+
+          if(i === 0) {
+            canvasCtx.moveTo(x, y);
+          } else {
+            canvasCtx.lineTo(x, y);
+          }
+
+          x += sliceWidth;
+        }
+
+        canvasCtx.lineTo(canvas.width, canvas.height/2);
+        canvasCtx.stroke();
+
+      }
+    }
+
+    window.onresize = function() {
+      canvas.width = mainSection.offsetWidth;
+    }
+
+    window.onresize();
+  }
+
+  window.audioRecorder = {
+    audioRecorder: audioRecorder
+  };
+})();
+
+
+(function () {
+  let videoRecorder = function() {
+  // Spec is at http://dvcs.w3.org/hg/dap/raw-file/tip/media-stream-capture/RecordingProposal.html
+
+    var constraints = {
+      audio:true,
+      video: {
+        width: {
+          min:640,
+          ideal:640,
+          max:640},
+        height: {
+          min:480,
+          ideal:480,
+          max:480 },
+        framerate:60}};
+
+    var recBtn = document.querySelector('button#rec');
+    var stopBtn = document.querySelector('button#stop');
+
+    var liveVideoElement = document.querySelector('#live');
+    var playbackVideoElement = document.querySelector('#playback');
+    var downloadLink = document.querySelector('a#downloadLink');
+
+    liveVideoElement.controls = false;
+    playbackVideoElement.controls=false;
+
+    var mediaRecorder;
+    var chunks = [];
+    var localStream = null;
+    var soundMeter  = null;
+    var containerType = "video/webm"; //defaults to webm but we switch to mp4 on Safari 14.0.2+
+
+    recBtn.addEventListener("click", onBtnRecordClicked);
+    stopBtn.addEventListener("click", onBtnStopClicked);
+
+    if (!navigator.mediaDevices.getUserMedia){
+      alert('navigator.mediaDevices.getUserMedia not supported on your browser, use the latest version of Firefox or Chrome');
+    } else {
+      if (window.MediaRecorder == undefined) {
+          alert('MediaRecorder not supported on your browser, use the latest version of Firefox or Chrome');
+      } else {
+        navigator.mediaDevices.getUserMedia(constraints)
+          .then(function(stream) {
+            localStream = stream;
+
+            localStream.getTracks().forEach(function(track) {
               if(track.kind == "audio"){
-                log("onstart - Audio track.readyState="+track.readyState+", track.muted=" + track.muted);
+                track.onended = function(event){
+                  log("audio track.onended Audio track.readyState="+track.readyState+", track.muted=" + track.muted);
+                }
               }
               if(track.kind == "video"){
-                log("onstart - Video track.readyState="+track.readyState+", track.muted=" + track.muted);
+                track.onended = function(event){
+                  log("video track.onended Audio track.readyState="+track.readyState+", track.muted=" + track.muted);
+                }
               }
             });
-			
-		};
 
-		mediaRecorder.onstop = function(){
-			log('mediaRecorder.onstop, mediaRecorder.state = ' + mediaRecorder.state);
+            liveVideoElement.srcObject = localStream;
+            liveVideoElement.play();
 
-			//var recording = new Blob(chunks, {type: containerType});
-			var recording = new Blob(chunks, {type: mediaRecorder.mimeType});
-			
-      console.log(recording);
-      downloadLink.href = URL.createObjectURL(recording);
+            try {
+              window.AudioContext = window.AudioContext || window.webkitAudioContext;
+              window.audioContext = new AudioContext();
+              } catch (e) {
+              log('Web Audio API not supported.');
+              }
 
-			/* 
-				srcObject code from https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/srcObject
-			*/
+              soundMeter = window.soundMeter = new SoundMeter(window.audioContext);
+              soundMeter.connectToSource(localStream, function(e) {
+              if (e) {
+                log(e);
+                return;
+              }else{
+                /*setInterval(function() {
+                  log(Math.round(soundMeter.instant.toFixed(2) * 100));
+                }, 100);*/
+              }
+              });
 
-			/*if ('srcObject' in playbackVideoElement) {
-			  try {
-			    playbackVideoElement.srcObject = recording;
-			  } catch (err) {
-			    if (err.name != "TypeError") {
-			      throw err;
-			    }*/
-			    // Even if they do, they may only support MediaStream
-			    playbackVideoElement.src = URL.createObjectURL(recording);
-			/*  }
-			} else {
-			  playbackVideoElement.src = URL.createObjectURL(recording);
-			} */
+          }).catch(function(err) {
+            /* handle the error */
+            log('navigator.getUserMedia error: '+err);
+          });
+      }
+    }
 
-			playbackVideoElement.controls = true;
-			playbackVideoElement.play();
+    function onBtnRecordClicked (){
+      if (localStream == null) {
+        alert('Could not get local stream from mic/camera');
+      } else {
+        recBtn.disabled = true;
+        stopBtn.disabled = false;
 
-			var rand =  Math.floor((Math.random() * 10000000));
-			switch(containerType){
-				case "video/mp4":
-					var name  = "video_"+rand+".mp4" ;
-					break;
-				default:
-					var name  = "video_"+rand+".webm" ;
-			}
+        chunks = [];
 
-			downloadLink.innerHTML = 'Download '+name;
+        /* use the stream */
+        if (typeof MediaRecorder.isTypeSupported == 'function'){
+          /*
+            MediaRecorder.isTypeSupported is a function announced in https://developers.google.com/web/updates/2016/01/mediarecorder
+            and later introduced in the MediaRecorder API spec http://www.w3.org/TR/mediastream-recording/
+          */
+          if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+            var options = {mimeType: 'video/webm;codecs=vp9'};
+          } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
+            var options = {mimeType: 'video/webm;codecs=h264'};
+          } else  if (MediaRecorder.isTypeSupported('video/webm')) {
+            var options = {mimeType: 'video/webm'};
+          } else  if (MediaRecorder.isTypeSupported('video/mp4')) {
+            // Safari 14.0.2 has an EXPERIMENTAL version of MediaRecorder enabled by default
+            containerType = "video/mp4";
+            var options = {mimeType: 'video/mp4'};
+          }
+          log('Using '+ options.mimeType);
+          mediaRecorder = new MediaRecorder(localStream, options);
+        } else {
+          log('isTypeSupported is not supported, using default codecs for browser');
+          mediaRecorder = new MediaRecorder(localStream);
+        }
 
-			downloadLink.setAttribute( "download", name);
-			downloadLink.setAttribute( "name", name);
-		};
+        mediaRecorder.ondataavailable = function(e) {
+          log('mediaRecorder.ondataavailable, e.data.size='+e.data.size);
+          if (e.data && e.data.size > 0) {
+            chunks.push(e.data);
+          }
+        };
 
-		mediaRecorder.onpause = function(){
-			log('mediaRecorder.onpause, mediaRecorder.state = ' + mediaRecorder.state);
-		}
+        mediaRecorder.onerror = function(e){
+          log('mediaRecorder.onerror: ' + e);
+        };
 
-		mediaRecorder.onresume = function(){
-			log('mediaRecorder.onresume, mediaRecorder.state = ' + mediaRecorder.state);
-		}
+        mediaRecorder.onstart = function(){
+          log('mediaRecorder.onstart, mediaRecorder.state = ' + mediaRecorder.state);
 
-		mediaRecorder.onwarning = function(e){
-			log('mediaRecorder.onwarning: ' + e);
-		};
+          localStream.getTracks().forEach(function(track) {
+                  if(track.kind == "audio"){
+                    log("onstart - Audio track.readyState="+track.readyState+", track.muted=" + track.muted);
+                  }
+                  if(track.kind == "video"){
+                    log("onstart - Video track.readyState="+track.readyState+", track.muted=" + track.muted);
+                  }
+                });
 
-		pauseResBtn.textContent = "Pause";
+        };
 
-		mediaRecorder.start(1000);
+        mediaRecorder.onstop = function(){
+          log('mediaRecorder.onstop, mediaRecorder.state = ' + mediaRecorder.state);
+          var recording = new Blob(chunks, {type: mediaRecorder.mimeType});
+          downloadLink.href = URL.createObjectURL(recording);
 
-		localStream.getTracks().forEach(function(track) {
-			log(track.kind+":"+JSON.stringify(track.getSettings()));
-			console.log(track.getSettings());
-		})
-	}
-}
+          // Even if they do, they may only support MediaStream
+          playbackVideoElement.src = URL.createObjectURL(recording);
+          playbackVideoElement.controls = true;
 
-navigator.mediaDevices.ondevicechange = function(event) {
-	log("mediaDevices.ondevicechange");
-	/*
-	if (localStream != null){
-		localStream.getTracks().forEach(function(track) {
-			if(track.kind == "audio"){
-				track.onended = function(event){
-					log("audio track.onended");
-				}
-			}
-		});
-	}
-	*/
-}
+          var rand =  Math.floor((Math.random() * 10000000));
+          switch(containerType){
+            case "video/mp4":
+              var name  = "video_"+rand+".mp4" ;
+              break;
+            default:
+              var name  = "video_"+rand+".webm" ;
+          }
 
-function onBtnStopClicked(){
-	mediaRecorder.stop();
-	recBtn.disabled = false;
-	pauseResBtn.disabled = true;
-	stopBtn.disabled = true;
-}
+          downloadLink.innerHTML = 'Download '+name;
 
-function onPauseResumeClicked(){
-	if(pauseResBtn.textContent === "Pause"){
-		pauseResBtn.textContent = "Resume";
-		mediaRecorder.pause();
-		stopBtn.disabled = true;
-	}else{
-		pauseResBtn.textContent = "Pause";
-		mediaRecorder.resume();
-		stopBtn.disabled = false;
-	}
-	recBtn.disabled = true;
-	pauseResBtn.disabled = false;
-}
+          downloadLink.setAttribute( "download", name);
+          downloadLink.setAttribute( "name", name);
+        };
 
-function onStateClicked(){
-	
-	if(mediaRecorder != null && localStream != null && soundMeter != null){
-		log("mediaRecorder.state="+mediaRecorder.state);
-		log("mediaRecorder.mimeType="+mediaRecorder.mimeType);
-		log("mediaRecorder.videoBitsPerSecond="+mediaRecorder.videoBitsPerSecond);
-		log("mediaRecorder.audioBitsPerSecond="+mediaRecorder.audioBitsPerSecond);
+        mediaRecorder.onpause = function(){
+          log('mediaRecorder.onpause, mediaRecorder.state = ' + mediaRecorder.state);
+        }
 
-		localStream.getTracks().forEach(function(track) {
-			if(track.kind == "audio"){
-				log("Audio: track.readyState="+track.readyState+", track.muted=" + track.muted);
-			}
-			if(track.kind == "video"){
-				log("Video: track.readyState="+track.readyState+", track.muted=" + track.muted);
-			}
-		});
-		
-		log("Audio activity: " + Math.round(soundMeter.instant.toFixed(2) * 100));
-	}
-	
-}
+        mediaRecorder.onresume = function(){
+          log('mediaRecorder.onresume, mediaRecorder.state = ' + mediaRecorder.state);
+        }
 
-function log(message){
-	// dataElement.innerHTML = dataElement.innerHTML+'<br>'+message ;
-	console.log(message)
-}
+        mediaRecorder.onwarning = function(e){
+          log('mediaRecorder.onwarning: ' + e);
+        };
+        mediaRecorder.start(1000);
 
-// Meter class that generates a number correlated to audio volume.
-// The meter class itself displays nothing, but it makes the
-// instantaneous and time-decaying volumes available for inspection.
-// It also reports on the fraction of samples that were at or near
-// the top of the measurement range.
-function SoundMeter(context) {
-  this.context = context;
-  this.instant = 0.0;
-  this.slow = 0.0;
-  this.clip = 0.0;
-  this.script = context.createScriptProcessor(2048, 1, 1);
-  var that = this;
-  this.script.onaudioprocess = function(event) {
-	var input = event.inputBuffer.getChannelData(0);
-	var i;
-	var sum = 0.0;
-	var clipcount = 0;
-	for (i = 0; i < input.length; ++i) {
-	  sum += input[i] * input[i];
-	  if (Math.abs(input[i]) > 0.99) {
-		clipcount += 1;
-	  }
-	}
-	that.instant = Math.sqrt(sum / input.length);
-	that.slow = 0.95 * that.slow + 0.05 * that.instant;
-	that.clip = clipcount / input.length;
-  };
-}
+        localStream.getTracks().forEach(function(track) {
+          log(track.kind+":"+JSON.stringify(track.getSettings()));
+          console.log(track.getSettings());
+        })
+      }
+    }
 
-SoundMeter.prototype.connectToSource = function(stream, callback) {
-  console.log('SoundMeter connecting');
-  try {
-	this.mic = this.context.createMediaStreamSource(stream);
-	this.mic.connect(this.script);
-	// necessary to make sample run, but should not be.
-	this.script.connect(this.context.destination);
-	if (typeof callback !== 'undefined') {
-	  callback(null);
-	}
-  } catch (e) {
-	console.error(e);
-	if (typeof callback !== 'undefined') {
-	  callback(e);
-	}
+    navigator.mediaDevices.ondevicechange = function(event) {
+      log("mediaDevices.ondevicechange");
+    }
+
+    function onBtnStopClicked(){
+      mediaRecorder.stop();
+      recBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+
+    function log(message){
+      console.log(message)
+    }
+
+    function SoundMeter(context) {
+      this.context = context;
+      this.instant = 0.0;
+      this.slow = 0.0;
+      this.clip = 0.0;
+      this.script = context.createScriptProcessor(2048, 1, 1);
+      var that = this;
+      this.script.onaudioprocess = function(event) {
+      var input = event.inputBuffer.getChannelData(0);
+      var i;
+      var sum = 0.0;
+      var clipcount = 0;
+      for (i = 0; i < input.length; ++i) {
+        sum += input[i] * input[i];
+        if (Math.abs(input[i]) > 0.99) {
+        clipcount += 1;
+        }
+      }
+      that.instant = Math.sqrt(sum / input.length);
+      that.slow = 0.95 * that.slow + 0.05 * that.instant;
+      that.clip = clipcount / input.length;
+      };
+    }
+
+    SoundMeter.prototype.connectToSource = function(stream, callback) {
+      console.log('SoundMeter connecting');
+      try {
+      this.mic = this.context.createMediaStreamSource(stream);
+      this.mic.connect(this.script);
+      this.script.connect(this.context.destination);
+      if (typeof callback !== 'undefined') {
+        callback(null);
+      }
+      } catch (e) {
+      console.error(e);
+      if (typeof callback !== 'undefined') {
+        callback(e);
+      }
+      }
+    };
+    SoundMeter.prototype.stop = function() {
+      this.mic.disconnect();
+      this.script.disconnect();
+    };
   }
-};
-SoundMeter.prototype.stop = function() {
-  this.mic.disconnect();
-  this.script.disconnect();
-};
+
+  window.videoRecorder = {
+    videoRecorder: videoRecorder
+  };
+})();
 
 
-//browser ID
-function getBrowser(){
-	var nVer = navigator.appVersion;
-	var nAgt = navigator.userAgent;
-	var browserName  = navigator.appName;
-	var fullVersion  = ''+parseFloat(navigator.appVersion);
-	var majorVersion = parseInt(navigator.appVersion,10);
-	var nameOffset,verOffset,ix;
+let param = true;
 
-	// In Opera, the true version is after "Opera" or after "Version"
-	if ((verOffset=nAgt.indexOf("Opera"))!=-1) {
-	 browserName = "Opera";
-	 fullVersion = nAgt.substring(verOffset+6);
-	 if ((verOffset=nAgt.indexOf("Version"))!=-1)
-	   fullVersion = nAgt.substring(verOffset+8);
-	}
-	// In MSIE, the true version is after "MSIE" in userAgent
-	else if ((verOffset=nAgt.indexOf("MSIE"))!=-1) {
-	 browserName = "Microsoft Internet Explorer";
-	 fullVersion = nAgt.substring(verOffset+5);
-	}
-	// In Chrome, the true version is after "Chrome"
-	else if ((verOffset=nAgt.indexOf("Chrome"))!=-1) {
-	 browserName = "Chrome";
-	 fullVersion = nAgt.substring(verOffset+7);
-	}
-	// In Safari, the true version is after "Safari" or after "Version"
-	else if ((verOffset=nAgt.indexOf("Safari"))!=-1) {
-	 browserName = "Safari";
-	 fullVersion = nAgt.substring(verOffset+7);
-	 if ((verOffset=nAgt.indexOf("Version"))!=-1)
-	   fullVersion = nAgt.substring(verOffset+8);
-	}
-	// In Firefox, the true version is after "Firefox"
-	else if ((verOffset=nAgt.indexOf("Firefox"))!=-1) {
-	 browserName = "Firefox";
-	 fullVersion = nAgt.substring(verOffset+8);
-	}
-	// In most other browsers, "name/version" is at the end of userAgent
-	else if ( (nameOffset=nAgt.lastIndexOf(' ')+1) <
-		   (verOffset=nAgt.lastIndexOf('/')) )
-	{
-	 browserName = nAgt.substring(nameOffset,verOffset);
-	 fullVersion = nAgt.substring(verOffset+1);
-	 if (browserName.toLowerCase()==browserName.toUpperCase()) {
-	  browserName = navigator.appName;
-	 }
-	}
-	// trim the fullVersion string at semicolon/space if present
-	if ((ix=fullVersion.indexOf(";"))!=-1)
-	   fullVersion=fullVersion.substring(0,ix);
-	if ((ix=fullVersion.indexOf(" "))!=-1)
-	   fullVersion=fullVersion.substring(0,ix);
+let videoBlock = document.querySelector('.video');
+let audioBlock = document.querySelector('.audio');
 
-	majorVersion = parseInt(''+fullVersion,10);
-	if (isNaN(majorVersion)) {
-	 fullVersion  = ''+parseFloat(navigator.appVersion);
-	 majorVersion = parseInt(navigator.appVersion,10);
-	}
-
-
-	return browserName;
-}
-
-
+window.addEventListener('load', () => {
+  if (param) {
+    audioBlock.style.display = 'block';
+    audioRecorder.audioRecorder();
+  } else {
+    videoBlock.style.display = 'block';
+    videoRecorder.videoRecorder();
+  }
+})
